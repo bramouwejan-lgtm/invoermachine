@@ -6,17 +6,15 @@ En RelayController voor sensor monitoring
 
 import serial
 import time
-from RelayController import RelayController
 from comhandeler import send_command, motor_forward, motor_backward, motor_home, motor_stop
-
-controller = RelayController()
 
 class stappenmotorcontroler_nieuw:
 
-    def __init__(self):
-        
-    # Open seriële poort naar de motorcontroler (TX van Pi = GPIO14)
-    # Gebruik serial0 voor meer compatibiliteit
+    def __init__(self, controller):
+        # RelayController instantie doorgeven i.p.v. zelf aanmaken
+        self.controller = controller
+        # Open seriële poort naar de motorcontroler (TX van Pi = GPIO14)
+        # Gebruik serial0 voor meer compatibiliteit
         self.conn = serial.Serial('/dev/serial0', 9600, timeout=1)
         time.sleep(2)  # wacht tot de motorcontroler klaar is
         
@@ -28,7 +26,7 @@ class stappenmotorcontroler_nieuw:
         voor = 0
         while voor == 0:
             
-            if controller.sensor_einde_active():
+            if self.controller.sensor_einde_active():
                 motor_stop(self.conn)        #motor stopt
                 time.sleep(1)
                 voor = 1
@@ -39,7 +37,7 @@ class stappenmotorcontroler_nieuw:
         time.sleep(1)
         achter =0
         while achter ==0:
-            if controller.sensor_home_active():
+            if self.controller.sensor_home_active():
                 motor_stop(self.conn)
                 time.sleep(1)
                 achter = 1
@@ -55,7 +53,7 @@ class stappenmotorcontroler_nieuw:
         time.sleep(1)
         home = 0
         while home < 10:
-            if controller.sensor_einde_active(): # probleem skip 
+            if self.controller.sensor_einde_active(): # probleem skip 
                 motor_stop(self.conn)
                 time.sleep(1)
                 home = 10
@@ -65,7 +63,7 @@ class stappenmotorcontroler_nieuw:
         time.sleep(1)
         achter =0
         while achter ==0:
-            if controller.sensor_home_active():
+            if self.controller.sensor_home_active():
                 motor_stop(self.conn)
                 time.sleep(1)
                 achter = 1
@@ -77,7 +75,7 @@ class stappenmotorcontroler_nieuw:
         time.sleep(1)
         voor = 0
         while voor == 0:
-            if controller.sensor_einde_active():
+            if self.controller.sensor_einde_active():
                 motor_stop(self.conn)
                 time.sleep(1)
                 voor = 1
@@ -87,7 +85,7 @@ class stappenmotorcontroler_nieuw:
         time.sleep(1)
         achter =0
         while achter ==0:
-            if controller.sensor_home_active():
+            if self.controller.sensor_home_active():
                 motor_stop(self.conn)
                 time.sleep(1)
                 achter = 1

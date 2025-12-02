@@ -6,13 +6,10 @@ import reset
 import bufferleeg
 import noodstop
 import RPi.GPIO as GPIO
+import traceback
 
-STEP_PIN = 12  # Zorg dat dit matcht met je klasse
-motor_pwm = GPIO.PWM(STEP_PIN, 1000)
-motor_pwm.start(50)  # PULSE_DUTY_CYCLE = 50
-motor_pwm.ChangeDutyCycle(0)
-
-controller = RelayController(motor_pwm=motor_pwm)
+# Laat RelayController zelf de PWM op STEP_PIN aanmaken en beheren
+controller = RelayController()
 print("Script gestart")
 try:
     print("Script gestart")

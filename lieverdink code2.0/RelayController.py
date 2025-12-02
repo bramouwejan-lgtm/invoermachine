@@ -1,3 +1,4 @@
+#import RPi.GPIO as GPIO
 try:
     import RPi.GPIO as GPIO
 except ImportError:
@@ -7,7 +8,9 @@ import time
 
 class RelayController:
     PULSE_DUTY_CYCLE = 50
-    def __init__(self, motor_pwm=None):
+    _shared_pwm = None  # gedeelde PWM-instantie voor alle RelayControllers
+
+    def __init__(self):
         self.relay_pins = [5, 6, 13, 16, 19, 20, 21, 26]    #5 motor om hoog, 6 moter naar beneden, 13,16,19,20,21,26
 
         #knoppen
@@ -33,16 +36,15 @@ class RelayController:
 
         GPIO.setup(self.DIR_PIN, GPIO.OUT)
         GPIO.setup(self.STEP_PIN, GPIO.OUT)
-        if motor_pwm is None:
-            # Fallback: maak PWM hier als het niet wordt doorgegeven (voor backwards compat)
-            self._motor_pwm = GPIO.PWM(self.STEP_PIN, 1000)
-            self._motor_pwm.start(self.PULSE_DUTY_CYCLE)
-            self._motor_pwm.ChangeDutyCycle(0)
-        else:
-            self._motor_pwm = motor_pwm  # Gebruik de doorgegeven PWM
-        #self._motor_pwm = GPIO.PWM(self.STEP_PIN, 1000) # Creëer het PWM-object
-        #self._motor_pwm.start(self.PULSE_DUTY_CYCLE)   # Start met 50% Duty Cycle
-        #self._motor_pwm.ChangeDutyCycle(0)             # Zet de Duty Cycle op 0 om te stoppen
+
+        # PWM slechts één keer per proces aanmaken; daarna hergebruiken
+        if RelayController._shared_pwm is None:
+            RelayController._shared_pwm = GPIO.PWM(self.STEP_PIN, 1000)  # Creëer het PWM-object
+            RelayController._shared_pwm.start(self.PULSE_DUTY_CYCLE)     # Start met 50% Duty Cycle
+            RelayController._shared_pwm.ChangeDutyCycle(0)               # Zet de Duty Cycle op 0 om te stoppen
+
+        # Verwijs in deze instantie naar de gedeelde PWM
+        self._motor_pwm = RelayController._shared_pwm
 
         #self._setup_gpio()
         self.button_stop_pressed = False

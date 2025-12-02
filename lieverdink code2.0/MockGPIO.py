@@ -91,4 +91,3 @@ if 'RPi' not in sys.modules:
     rpi_module.GPIO = MockGPIO
     sys.modules['RPi'] = rpi_module
     sys.modules['RPi.GPIO'] = MockGPIO
-

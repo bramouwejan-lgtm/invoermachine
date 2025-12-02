@@ -6,7 +6,6 @@ import noodstop
 from stappenmotorcontroler_nieuw import stappenmotorcontroler_nieuw
 #from stappen_motor import stappen_motor
 #from RelayController import RelayController
-lift = stappenmotorcontroler_nieuw()
 
 def automatisch(controller):
     print ("automatische stand bereikt!")
@@ -64,14 +63,18 @@ def automatisch(controller):
                     print("Start stappenmotor: Plank wordt geduwd.")
                     
                     # Gebruik 'CW' of 'CCW' voor de richting die de plank duwt ('vooruit')
-                    controller.start_stappenmotor(richting='CW', steps_per_sec=1000) 
-                    time.sleep(0.5) # Draai de motor 0.5 seconde
-                    controller.stop_stappenmotor() # Stop de motor
-                    print("Stappenmotor gestopt.")
+                    controller.start_stappenmotor(richting='CW', steps_per_sec=1000)
+                    while True:
+                        if controller.sensor_einde_active():
+                            controller.stop_stappenmotor() # Stop de motor
+                            print("Stappenmotor gestopt.")
+                            break
                     controller.start_stappenmotor(richting='CCW', steps_per_sec=1000) 
                     time.sleep(0.5) 
-                    xcontroller.stop_stappenmotor()
-                    #lift.duwen()
+                    controller.stop_stappenmotor()
+                    # Als je weer de stappenmotorcontroller wilt gebruiken:
+                    # lift = stappenmotorcontroler_nieuw(controller)
+                    # lift.duwen()
                     loopnummer = loopnummer+1
                     print ("dit is de ", loopnummer, "ste plank")
                     # code duwen plank komt hier!!!
