@@ -3,7 +3,7 @@ import time
 
 class RelayController:
     PULSE_DUTY_CYCLE = 50
-    def __init__(self):
+    def __init__(self, motor_pwm=None):
         self.relay_pins = [5, 6, 13, 16, 19, 20, 21, 26]    #5 motor om hoog, 6 moter naar beneden, 13,16,19,20,21,26
 
         #knoppen
