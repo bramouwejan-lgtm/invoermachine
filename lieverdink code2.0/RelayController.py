@@ -1,4 +1,8 @@
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    print("RPi.GPIO niet gevonden, MockGPIO wordt gebruikt.")
+    from MockGPIO import MockGPIO as GPIO
 import time
 
 class RelayController:
