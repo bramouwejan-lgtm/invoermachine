@@ -14,7 +14,43 @@ print("Script gestart")
 try:
     print("Script gestart")
     print("Wacht op knopdruk...")
+    time.sleep(0.1)
+    controller.first_cycle = True
+    
     while True:
+        #print("first cycle is " controller.first_cycle)
+        if controller.first_cycle == True:                     #dit zorgt er voor dat de eerste cycle de stappenmotor goed staat.
+            if controller.sensor_home_active():
+                print ("Stappenmotor staat goed")
+                controller.first_cycle = False
+            elif controller.btn_noodstop_pushed():
+                print ("Opstarten NOODSTOP stand")
+                time.sleep(0.05)
+                noodstop.noodstop(controller)
+            elif not controller.sensor_home_active():
+                controller.start_stappenmotor(richting='CCW', steps_per_sec=1000)
+                print ("stappenmotor nog niet op de juiste positie")
+                while not controller.sensor_home_active(): 
+
+                    if controller.btn_noodstop_pushed():
+                        print ("Opstarten NOODSTOP stand")
+                        time.sleep(0.05)
+                        noodstop.noodstop(controller)
+                        controller.start_stappenmotor(richting='CCW', steps_per_sec=1000)
+                        continue
+                    elif controller.sensor_home_active():
+                        controller.stop_stappenmotor()
+                controller.stop_stappenmotor()
+                controller.first_cycle = False
+            
+        
+        # Noodstop heeft absolute prioriteit (NO knop): direct naar noodstop en daarna weer bovenaan de while landen.
+        if controller.btn_noodstop_pushed():
+            print ("Opstarten NOODSTOP stand")
+            time.sleep(0.05)
+            noodstop.noodstop(controller)
+            continue
+
         if controller.btn_start_pushed():
             print ("Opstarten automatische stand.")
             time.sleep(0.2)
@@ -22,10 +58,11 @@ try:
 
             print(controller.btn_handmatig_pushed())
 
-            if controller.btn_handmatig_pushed() >0:
-                print ("Opstarten handmatige stand")
-                time.sleep(0.2)
-                handmatig.handmatig(controller)
+            #if controller.btn_handmatig_pushed() >0:
+                #print ("Opstarten handmatige stand")
+                #time.sleep(0.2)
+                #handmatig.handmatig(controller)
+                
         elif controller.btn_reset_pushed():
             print ("Opstarten reset modus")
             time.sleep(0.2)
@@ -35,14 +72,10 @@ try:
             print ("sensor hoog buffer")
             time.sleep(0.2)
             bufferleeg.bufferleeg(controller)
-
-        elif controller.btn_noodstop_pushed():
-            print ("Opstarten NOODSTOP stand")
-            time.sleep(0.2)
-            noodstop.noodstop(controller)
             
+
         time.sleep(0.2)
-        controller.button_handmatig_pressed = 0
+        #controller.button_handmatig_pressed = 0
         
 except Exception as e:
     print("FOUT OPGETREDEN:", e)

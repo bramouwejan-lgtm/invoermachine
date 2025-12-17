@@ -1,4 +1,3 @@
-#import RPi.GPIO as GPIO
 try:
     import RPi.GPIO as GPIO
 except ImportError:
@@ -12,7 +11,7 @@ class RelayController:
 
     def __init__(self):
         self.relay_pins = [5, 6, 13, 16, 19, 20, 21, 26]    #5 motor om hoog, 6 moter naar beneden, 13,16,19,20,21,26
-
+        self.first_cycle = False
         #knoppen
         self.button_stop = 22           #stopknop
         self.button_start = 17          #startknop
@@ -29,10 +28,21 @@ class RelayController:
         # STAPPENMOTOR PINNEN (12 en 3)
         self.STEP_PIN = 12  # Hardware PWM (Jouw nieuwe STEP-pin)
         self.DIR_PIN = 2    # DIR-pin
-        #sensor_home_stappenmotor
-        #sensor_begin_stappenmotor
 
-        self._setup_gpio()
+        # GPIO kan "busy" zijn als een vorig proces de pins nog claimt.
+        # Probeer één keer een cleanup en opnieuw.
+        try:
+            self._setup_gpio()
+        except Exception as e:
+            print("GPIO setup mislukt, probeer GPIO.cleanup() en nogmaals. Fout:", e)
+            try:
+                GPIO.cleanup()
+                time.sleep(0.1)
+                self._setup_gpio()
+                print("GPIO setup gelukt na cleanup.")
+            except Exception as e2:
+                print("GPIO setup blijft mislukken. Stop andere processen of reboot. Fout:", e2)
+                raise
 
         GPIO.setup(self.DIR_PIN, GPIO.OUT)
         GPIO.setup(self.STEP_PIN, GPIO.OUT)
@@ -58,28 +68,28 @@ class RelayController:
     def _setup_gpio(self):
         GPIO.setmode(GPIO.BCM)
 
-        # stop button
-        GPIO.setup(self.button_stop, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_stop, GPIO.FALLING, callback=self.button_stop_event, bouncetime=300)
+        # stop button (extern relais geeft 3.3V bij activatie)
+        GPIO.setup(self.button_stop, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(self.button_stop, GPIO.RISING, callback=self.button_stop_event, bouncetime=300)
        
 
         # start button
-        GPIO.setup(self.button_start, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_start, GPIO.FALLING, callback=self.button_start_event, bouncetime=300)
+        GPIO.setup(self.button_start, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(self.button_start, GPIO.RISING, callback=self.button_start_event, bouncetime=300)
        
 
-        # nood button
-        GPIO.setup(self.button_noodstop, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_noodstop, GPIO.FALLING, callback=self.button_noodstop_event, bouncetime=300)
+        # nood button (NC-keten via extern relais → 3.3V bij onderbreking)
+        GPIO.setup(self.button_noodstop, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(self.button_noodstop, GPIO.RISING, callback=self.button_noodstop_event, bouncetime=300)
        
 
         # handmatig button
-        GPIO.setup(self.button_handmatig, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_handmatig, GPIO.FALLING, callback=self.button_handmatig_event, bouncetime=300)
+        GPIO.setup(self.button_handmatig, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(self.button_handmatig, GPIO.RISING, callback=self.button_handmatig_event, bouncetime=300)
        
         # reset button
-        GPIO.setup(self.button_reset, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_reset, GPIO.FALLING, callback=self.button_reset_event, bouncetime=300)
+        GPIO.setup(self.button_reset, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(self.button_reset, GPIO.RISING, callback=self.button_reset_event, bouncetime=300)
 
         # sensor boven lift
         GPIO.setup(self.sensor_boven_lift, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -145,12 +155,12 @@ class RelayController:
     def button_stop_event(self, channel):
         self.button_stop_pressed = True
         print('stopknop ingedrukt')
-        self.button_handmatig_pressed = 0
+        #self.button_handmatig_pressed = 0
 
     def button_start_event(self, channel):
         self.button_start_pressed = True
         print('startknop ingedrukt')
-        self.button_handmatig_pressed = 0
+        #self.button_handmatig_pressed = 0
 
     def button_noodstop_event(self, channel):
         self.button_noodstop_pressed = True
@@ -158,13 +168,17 @@ class RelayController:
 
 
     def button_handmatig_event(self, channel):
-        self.button_handmatig_pressed +=1
+        #self.button_handmatig_pressed +=1
+        #print('handmatigknop ingedrukt')
+        self.button_start_pressed = True
         print('handmatigknop ingedrukt')
+        #self.button_handmatig_pressed = 0
 
     def button_reset_event(self, channel):
         self.button_reset_pressed = True
         print('resetknop ingedrukt')
 
+    #sensoren:
     def sensor_boven_lift_event(self, channel):
         if GPIO.input(channel):
             print('sensor lift boven hoog signaal')
@@ -236,21 +250,28 @@ class RelayController:
         return btn_state
    
     def btn_noodstop_pushed(self):
-        # Controleer of de knop momenteel wordt ingedrukt
-        current_state = GPIO.input(self.button_noodstop) == GPIO.LOW
-        
-        # Alleen resetten als de knop niet meer wordt ingedrukt
-        if not current_state and self.button_noodstop_pressed:
+        """
+        Noodstop (NC-keten) via extern relais dat 3.3V levert bij onderbreking:
+        - In rust LOW (PUD_DOWN houdt laag)
+        - Bij onderbreking/relais-actief → HIGH → noodstop actief
+        - True zolang HIGH; na loslaten direct False met éénmalige melding
+        """
+        current_pressed = GPIO.input(self.button_noodstop) == GPIO.HIGH
+
+        if current_pressed:
+            self.button_noodstop_pressed = True
+        elif self.button_noodstop_pressed:
             self.button_noodstop_pressed = False
             print('Noodstop knop losgelaten')
-        
-        return self.button_noodstop_pressed
+
+        return current_pressed or self.button_noodstop_pressed
  
     
     def btn_handmatig_pushed(self):
-        #btn_state = self.button_handmatig_pressed
-        #self.button_handmatig_pressed = False 
-        return self.button_handmatig_pressed
+        btn_state = self.button_handmatig_pressed
+        self.button_handmatig_pressed = False 
+        #return self.button_handmatig_pressed
+        return btn_state
     
     def btn_reset_pushed(self):
         btn_state = self.button_reset_pressed
@@ -283,10 +304,17 @@ class RelayController:
 
 
     def cleanup(self):
-        self._motor_pwm.stop()
-        GPIO.output(self.DIR_PIN, GPIO.LOW) # Zet de DIR-pin veilig op LOW
-        self.all_off()
-        GPIO.cleanup()
+        try:
+            if hasattr(self, "_motor_pwm"):
+                self._motor_pwm.stop()
+        except Exception:
+            pass
+        try:
+            GPIO.output(self.DIR_PIN, GPIO.LOW) # Zet de DIR-pin veilig op LOW
+            self.all_off()
+            GPIO.cleanup()
+        except Exception:
+            pass
         print("GPIO cleanup uitgevoerd.")
 
     def __del__(self):

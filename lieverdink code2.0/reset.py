@@ -44,7 +44,7 @@ def reset(controller):
         else:
             time.sleep(1)
             loopnummer = loopnummer+1
-            print ("dit is de ", loopnummer, " loop")
+            print ("dit is de reset ", loopnummer, " loop")
             
     controller.set_relay(1, False)
 
